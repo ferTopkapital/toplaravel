@@ -1,0 +1,213 @@
+@import 'tailwindcss';
+
+@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
+@source '../../storage/framework/views/*.php';
+@source '../**/*.blade.php';
+@source '../**/*.ts';
+@source '../**/*.vue';
+
+/*
+ * Tema oscuro por clase en <html>, no por prefers-color-scheme, porque el
+ * usuario puede elegir "claro | oscuro | sistema". El composable useTheme()
+ * resuelve "sistema" y siempre termina poniendo o quitando la clase .dark.
+ */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* -------------------------------------------------------------------------
+ * Paleta de marca Top Kapital.
+ * Los tonos 500/900 son los colores exactos que ya usa la app Yii2; el resto
+ * de la escala se derivo de ellos para poder construir estados (hover, focus,
+ * bordes, fondos sutiles) sin inventar colores sueltos en cada vista.
+ * ------------------------------------------------------------------------- */
+@theme {
+    /* Naranja: CTA principal. El 500 es el #DF591D original. */
+    --color-brand-50: #fef4ee;
+    --color-brand-100: #fce4d5;
+    --color-brand-200: #f9c5aa;
+    --color-brand-300: #f4a078;
+    --color-brand-400: #ec7a47;
+    --color-brand-500: #df591d;
+    --color-brand-600: #c24817;
+    --color-brand-700: #9c3813;
+    --color-brand-800: #7a2d12;
+    --color-brand-900: #5f2511;
+
+    /* Navy: color dominante de la marca. El 900 es el #18233E original. */
+    --color-navy-50: #f2f4f8;
+    --color-navy-100: #e2e7ef;
+    --color-navy-200: #c6cfde;
+    --color-navy-300: #9baac5;
+    --color-navy-400: #6a7fa5;
+    --color-navy-500: #4a5f87;
+    --color-navy-600: #374a6c;
+    --color-navy-700: #2a3a57;
+    --color-navy-800: #1f2c45;
+    --color-navy-900: #18233e;
+    --color-navy-950: #0f162a;
+
+    /* Neutros calidos de la marca (taupe / beige). */
+    --color-sand-100: #f5f3f0;
+    --color-sand-200: #e7e3dd;
+    --color-sand-300: #d6cfc5;
+    --color-sand-400: #c5bcaf;
+    --color-sand-500: #a89c8c;
+
+    /* Estados. Heredados del tema Velzon para no cambiar el significado de
+     * los colores que el equipo interno ya reconoce. */
+    --color-warn-500: #f7b84b;
+    --color-danger-500: #f06548;
+    --color-success-500: #0ab39c;
+    --color-info-500: #299cdb;
+
+    --font-display: 'Antic Slab', ui-serif, Georgia, serif;
+    --font-sans: 'Nunito Sans', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* -------------------------------------------------------------------------
+ * Tokens semanticos.
+ * Las vistas usan SIEMPRE estos (bg-surface, text-fg-muted...), nunca los
+ * colores crudos de arriba. Asi el modo oscuro se resuelve en un solo lugar.
+ * ------------------------------------------------------------------------- */
+:root {
+    --surface: #ffffff;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f5f3f0;
+    --surface-inverted: #18233e;
+
+    --fg: #18233e;
+    --fg-muted: #5b6478;
+    --fg-subtle: #8b93a5;
+    --fg-inverted: #ffffff;
+
+    --border-c: #e2e7ef;
+    --border-strong: #c6cfde;
+
+    --accent: #df591d;
+    --accent-hover: #c24817;
+    --accent-fg: #ffffff;
+
+    --ring: #df591d;
+}
+
+/*
+ * El oscuro NO es una inversion automatica: el navy pasa a ser el fondo y el
+ * naranja se abre un tono para conservar contraste AA sobre el.
+ */
+.dark {
+    --surface: #131b2e;
+    --surface-raised: #1f2c45;
+    --surface-sunken: #0f162a;
+    --surface-inverted: #e7e3dd;
+
+    --fg: #e8ecf3;
+    --fg-muted: #9baac5;
+    --fg-subtle: #6a7fa5;
+    --fg-inverted: #18233e;
+
+    --border-c: #2a3a57;
+    --border-strong: #374a6c;
+
+    --accent: #ec7a47;
+    --accent-hover: #f4a078;
+    --accent-fg: #18233e;
+
+    --ring: #ec7a47;
+}
+
+/* Se exponen a Tailwind para poder escribir bg-surface, text-fg-muted, etc. */
+@theme inline {
+    --color-surface: var(--surface);
+    --color-surface-raised: var(--surface-raised);
+    --color-surface-sunken: var(--surface-sunken);
+    --color-surface-inverted: var(--surface-inverted);
+
+    --color-fg: var(--fg);
+    --color-fg-muted: var(--fg-muted);
+    --color-fg-subtle: var(--fg-subtle);
+    --color-fg-inverted: var(--fg-inverted);
+
+    --color-line: var(--border-c);
+    --color-line-strong: var(--border-strong);
+
+    --color-accent: var(--accent);
+    --color-accent-hover: var(--accent-hover);
+    --color-accent-fg: var(--accent-fg);
+}
+
+@layer base {
+    html {
+        font-family: var(--font-sans);
+        -webkit-text-size-adjust: 100%;
+    }
+
+    body {
+        background-color: var(--surface-sunken);
+        color: var(--fg);
+    }
+
+    h1,
+    h2,
+    h3 {
+        font-family: var(--font-display);
+    }
+
+    /* Un solo anillo de foco para toda la app. */
+    :focus-visible {
+        outline: 2px solid var(--ring);
+        outline-offset: 2px;
+    }
+}
+
+/* -------------------------------------------------------------------------
+ * Movimiento.
+ * Todas las transiciones de la app pasan por estas clases, para poder
+ * apagarlas de golpe cuando el sistema pide menos movimiento.
+ * ------------------------------------------------------------------------- */
+@layer utilities {
+    .page-enter-active,
+    .page-leave-active {
+        transition:
+            opacity 180ms ease,
+            transform 180ms ease;
+    }
+
+    .page-enter-from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    .page-leave-to {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    .skeleton {
+        background: linear-gradient(
+            90deg,
+            var(--surface-sunken) 25%,
+            var(--border-c) 37%,
+            var(--surface-sunken) 63%
+        );
+        background-size: 400% 100%;
+        animation: skeleton-shimmer 1.4s ease infinite;
+    }
+
+    @keyframes skeleton-shimmer {
+        0% {
+            background-position: 100% 50%;
+        }
+        100% {
+            background-position: 0 50%;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+}
