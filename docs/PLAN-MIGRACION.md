@@ -317,17 +317,36 @@ indicador de orden de la columna nunca se mueve.
 
 Todo lo de este bloque está normado; ver §8.
 
-- Login con identificador (email) + contraseña, compatible con los hashes existentes.
-- Política de contraseñas: 8–30 caracteres, mayúscula, minúscula, dígito, especial; y las
-  prohibiciones (identificador, nombre de la institución, >3 caracteres idénticos
-  consecutivos, >3 secuenciales).
-- Bloqueo a los **10 intentos fallidos** con desbloqueo por código de 8 caracteres al correo.
-- **OTP de 8 caracteres con vigencia de 2 minutos** como segundo factor.
-- **Imagen de seguridad** elegida por el usuario, mostrada antes de pedir la contraseña.
-- Cierre de sesión por inactividad + modal de aviso con cuenta regresiva.
-- **Sesión única** por identificador de cliente.
-- Al iniciar sesión, mostrar nombre del cliente y fecha/hora del último ingreso.
-- Reset de contraseña por código al correo, con historial (`historial_contrasenas`).
+- [x] Login con identificador (email) + contraseña, compatible con los hashes existentes.
+- [x] Política de contraseñas: 8–30 caracteres, mayúscula, minúscula, dígito, especial; y las
+      prohibiciones (identificador, nombre de la institución, >3 caracteres idénticos
+      consecutivos, >3 secuenciales). `App\Rules\PoliticaPassword`, con 24 pruebas.
+- [x] Bloqueo a los **10 intentos fallidos** con desbloqueo por código al correo.
+- [x] **OTP de 8 caracteres con vigencia de 2 minutos** (`App\Services\CodigoOtp`).
+- [x] **Imagen de seguridad** mostrada antes de pedir la contraseña.
+- [x] Al iniciar sesión se conserva `ultimoLoginAnterior` para poder mostrar el ingreso previo.
+- [ ] Falta: **enviar el OTP por correo** (hoy se escribe al log; el mailer llega en la Fase 3).
+- [ ] Falta: mostrar nombre y fecha del último ingreso ya dentro de la app (es de la Fase 3).
+- [ ] Falta: cierre de sesión por inactividad + modal con cuenta regresiva.
+- [ ] Falta: **sesión única** por identificador de cliente.
+- [ ] Falta: reset de contraseña por código, con historial (`historial_contrasenas`).
+- [ ] Falta: registro (signup) de inversionista y de solicitante.
+
+#### El contador de intentos cuenta hacia ATRÁS
+
+`usuario.intentosLogin` **no** acumula fallos: arranca en 10 (su valor por defecto en la
+base) y se **descuenta**. Llegar a 0 es el bloqueo del §4.3.1. Cualquier código que lo
+trate como un contador ascendente estará invirtiendo la lógica.
+
+#### Regresión heredada que hay que preservar (DDS-897)
+
+En la app Yii2, la exigencia del segundo factor se evaluaba **después** de validar la
+contraseña. Efecto: en la petición en la que el contador llegaba a 0 —cuando `codigoLogin`
+todavía no existía en la base— una contraseña correcta entraba **saltándose el OTP**.
+
+En Laravel la decisión va antes de mirar la contraseña, y hay una prueba dedicada
+(`test_con_intentos_agotados_la_contrasena_correcta_no_basta`) para que no se vuelva a
+colar.
 
 ### Fase 3 — Portal del inversionista (mayor impacto en velocidad)
 
@@ -440,7 +459,8 @@ Hay que resolverlas **antes** de la Fase 2, porque definen el comportamiento a i
 | Composer | `C:\dev\composer\composer.bat` |
 | BD | `topkapital` / usuario `topkapital` (respaldo de producción del 2026-08-20) |
 | App Yii2 | `https://dev.topkapital.com` (frontend) y `:8080/admin` (backend) |
-| **App Laravel** | **`http://toplaravel.loc`** → `C:\dev\toplaravel\public` |
+| **App Laravel (sin admin)** | **`http://toplaravel.localhost:8000`** con `php artisan serve` |
+| App Laravel (por Apache) | `http://toplaravel.loc` → `C:\dev\toplaravel\public`, requiere correr `C:\dev\setup-toplaravel.ps1` elevado |
 | Vhosts | `C:\dev\Apache24\conf\extra\httpd-vhosts.conf` |
 | Secretos | `C:\dev\Apache24\conf\extra\topkapital-env.conf` (fuera del repo, a propósito) |
 
@@ -516,6 +536,31 @@ detecta automáticamente al recibir el pago por STP. Queda resuelta la discrepan
   búsqueda con debounce (1,214 → 2 resultados), orden en ambos sentidos con `aria-sort`
   correcto, y **el foco se conserva** en el buscador durante la recarga parcial.
 - Corregido el bug de la clave de transición (ver la Fase 1 arriba).
+
+### 2026-09-10 — Sesión 1 (continuación): Fase 2
+
+- **Dominio local sin permisos de administrador:** `http://toplaravel.localhost:8000`.
+  Los navegadores resuelven `*.localhost` a 127.0.0.1 por sí solos, sin tocar `hosts`.
+  El vhost `toplaravel.loc` sigue disponible corriendo el script elevado.
+- Modelo `Usuario` mapeado a la tabla existente, con las constantes de rol y estatus
+  copiadas del Yii2 y el contrato de autenticación implementado a mano
+  (`usuarioId` / `passwordHash`). "Recordarme" queda **deshabilitado**: una cookie
+  persistente contradice el cierre por inactividad y la sesión única del §4.4.4.
+- `config/auth.php` apunta al provider `usuarios`. Se eliminó el modelo `User` por defecto.
+- `PoliticaPassword` (24 pruebas) y `CodigoOtp`.
+- Login en dos pasos con imagen de seguridad, y `AuthLayout`.
+- **12 pruebas de Feature del login**, incluida la regresión DDS-897.
+
+**Sobre las pruebas:** corren contra la **base compartida**, porque el usuario de base de
+datos no tiene privilegios para crear una base aparte. Las que escriben usan
+`DatabaseTransactions` y revierten todo. Para que nadie borre las 44 tablas por descuido,
+`Tests\TestCase` **aborta la ejecución** si un test usa `RefreshDatabase`,
+`DatabaseMigrations` o `DatabaseTruncation`. Verificado: tras correr la suite, la tabla
+`usuario` sigue con sus 174 filas y cero residuos.
+
+**Decisión de diseño:** si el usuario no ha elegido imagen de seguridad, la pantalla lo
+dice en vez de mostrar una cualquiera. Enseñar una imagen equivocada destruiría justamente
+la garantía que ese control existe para dar.
 
 **Siguiente paso natural:** completar los componentes que faltan de la Fase 1
 (`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,

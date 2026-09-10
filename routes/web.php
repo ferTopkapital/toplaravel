@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Auth\LoginController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -19,6 +20,27 @@ use Inertia\Inertia;
 | que ya salieron en correos.
 |
 */
+
+/*
+ * Autenticación (Fase 2). El login es en dos pasos porque el manual §1.4
+ * obliga a mostrar la imagen de seguridad antes de pedir la contraseña.
+ *
+ * El throttle acota el efecto de que la pantalla revele si un correo existe
+ * —consecuencia inevitable de ese control— y respalda el bloqueo del §4.3.1.
+ */
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [LoginController::class, 'mostrar'])->name('login');
+
+    Route::post('/login/identificar', [LoginController::class, 'identificar'])
+        ->middleware('throttle:10,1');
+
+    Route::post('/login', [LoginController::class, 'entrar'])
+        ->middleware('throttle:10,1');
+});
+
+Route::post('/logout', [LoginController::class, 'salir'])
+    ->middleware('auth')
+    ->name('logout');
 
 Route::get('/', function () {
     // Consulta directa a proposito: los modelos Eloquent mapeados al esquema
