@@ -445,15 +445,32 @@ una URL directa (comprobado con `curl`). Hay que firmarlas, igual que hace la ap
 faltan credenciales o falla la firma: sin ellas la tarjeta dibuja su marcador y la pantalla
 sigue siendo usable. Una imagen que no carga no debe tumbar el panel del cliente.
 
-**Para ver las imágenes hay que agregar al `.env`** (los valores están en
-`C:\dev\Apache24\conf\extra\topkapital-env.conf`):
+El layout de rutas lo fija la app Yii2: `proyectos/{proyectoId}/archivos/{nombre}`. La
+columna `imagenes` guarda **sólo el nombre**, así que sin ese prefijo la firma es válida
+pero el objeto no existe y S3 responde 404.
 
-```
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_DEFAULT_REGION=us-west-2
-AWS_BUCKET=topkapital-dev
-```
+#### En local las imágenes no se ven, y es correcto que así sea
+
+La base local es un respaldo de **producción**, pero el bucket configurado es
+**`topkapital-dev`**. Son dos conjuntos de datos distintos: la base referencia los
+proyectos 1 y 2, y el bucket de dev tiene los proyectos 10 en adelante. Por eso
+`proyectos/1/archivos` está vacío.
+
+**No es un error de código.** Verificado: al firmar un objeto que sí existe en el bucket
+(`proyectos/10/archivos/...`) la descarga responde **HTTP 200**. Para ver imágenes en local
+haría falta o el bucket de producción, o un respaldo de base que corresponda al de dev.
+
+#### PHP no tenía bundle de certificados
+
+Ninguna llamada HTTPS saliente desde PHP funcionaba en esta máquina: fallaban con
+`unable to get local issuer certificate`. Eso no afectaba sólo a S3 — habría tumbado
+**todas** las integraciones (Banxico, INEGI, Incode, STP, Facturación Moderna, Gmail API)
+en cuanto se migraran en la Fase 7.
+
+Se resolvió copiando el bundle que ya trae Git a `C:\dev\php82\cacert.pem` y apuntando
+`curl.cainfo` y `openssl.cafile` en `php.ini`. **Apache necesita reiniciarse** para
+tomarlo (`C:\dev\setup-toplaravel.ps1` como administrador ya lo hace). Beneficia también
+a la app Yii2.
 
 ### Fase 4 — Onboarding (wizards)
 
@@ -716,8 +733,9 @@ la tabla `usuario` sigue con sus 174 filas.
   200, cosa que dejó de ser cierta al proteger el portal, y su intención ya está cubierta
   por `PortalTest`.
 
-**Hallazgo:** los archivos de S3 no son públicos pese a lo que declara la configuración
-(403 comprobado). Ver la Fase 3 arriba.
+**Dos hallazgos de entorno**, ambos detallados en la Fase 3 arriba: los archivos de S3
+no son públicos pese a lo que declara la configuración, y **PHP no tenía bundle de
+certificados**, lo que habría tumbado todas las integraciones de la Fase 7.
 
 **Verificado a ojo** con un inversionista temporal: el panel mostró
 `$165,000.00` de capital, sus dos inversiones y el nombre con la fecha del ingreso

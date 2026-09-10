@@ -69,13 +69,9 @@ class ProyectoController extends Controller
                 'etapaId' => $proyecto->etapaId,
                 'resumen' => $proyecto->resumen,
                 'direccion' => $proyecto->direccion,
-                // urlDeS3 devuelve null si faltan credenciales: se filtran
-                // para que la galería no intente pintar huecos.
-                'imagenes' => collect($proyecto->imagenes ?? [])
-                    ->map(fn ($archivo) => Proyecto::urlDeS3((string) $archivo))
-                    ->filter()
-                    ->values()
-                    ->all(),
+                // Ya filtra las que no se pudieron firmar, para que la galería
+                // no intente pintar huecos.
+                'imagenes' => $proyecto->galeria(),
             ],
             'campana' => $campana === null ? null : [
                 'objetivo' => (float) $campana->monto,

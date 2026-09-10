@@ -149,7 +149,34 @@ class Proyecto extends Model
             return null;
         }
 
-        return static::urlDeS3((string) reset($imagenes));
+        return $this->urlDeArchivo((string) reset($imagenes));
+    }
+
+    /** @return list<string> URLs firmadas de toda la galería. */
+    public function galeria(): array
+    {
+        return collect($this->imagenes ?? [])
+            ->map(fn ($archivo) => $this->urlDeArchivo((string) $archivo))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Ruta del archivo dentro del bucket.
+     *
+     * El layout lo fija la app Yii2 (`common\models\Proyecto::getImagenesPreview`):
+     * `proyectos/{proyectoId}/archivos/{nombre}`. El JSON de la columna
+     * `imagenes` guarda sólo el nombre, así que sin este prefijo la firma es
+     * válida pero el objeto no existe — S3 responde 404.
+     */
+    public function urlDeArchivo(string $nombre): ?string
+    {
+        if ($nombre === '') {
+            return null;
+        }
+
+        return static::urlDeS3("proyectos/{$this->proyectoId}/archivos/{$nombre}");
     }
 
     /**
