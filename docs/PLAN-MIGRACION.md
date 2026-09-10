@@ -330,8 +330,31 @@ Todo lo de este bloque está normado; ver §8.
 - [x] Cierre de sesión por inactividad **aplicado en el servidor** + modal con cuenta regresiva.
 - [x] **Sesión única** por identificador de cliente.
 - [x] Bitácora de accesos en `sesiones_web` (ver abajo: alimenta OFICO).
-- [ ] Falta: reset de contraseña por código, con historial (`historial_contrasenas`).
-- [ ] Falta: registro (signup) de inversionista y de solicitante.
+- [x] Reset de contraseña por código, con historial (`historial_contrasenas`).
+- [x] Registro de inversionista con verificación de correo.
+- [x] Envío de códigos por correo (`CodigoVerificacion`).
+- [ ] Falta: registro del **solicitante** (`/site/signupsl` en Yii2).
+- [ ] Falta: elección de la imagen de seguridad desde el perfil.
+
+#### El límite de reúso de contraseñas está roto en Yii2
+
+`frontend/models/ResetPasswordForm.php` limita la comparación con
+`Yii::$app->params['maxPasswordHistory']`, que **no está definido en ningún archivo de
+params**. La expresión evalúa a `null`, `limit(null)` significa "sin límite", y termina
+comparando contra **todo** el historial — emitiendo además un warning de PHP en cada reset.
+
+El comportamiento resultante (nunca reutilizar ninguna contraseña previa) es el estricto,
+así que en Laravel se conserva, pero explícito: `password.historial_comparado`, con `null`
+como valor por defecto. Ponerle un número finito sería **aflojar** un control de seguridad
+y debe ser una decisión consciente, no una corrección silenciosa del descuido.
+
+#### Dónde sí se revela si un correo existe, y dónde no
+
+- **Login:** sí. La imagen de seguridad del §1.4 obliga a distinguir al usuario antes de
+  pedir la contraseña; es una consecuencia inevitable del control. Se compensa con
+  `throttle`.
+- **Recuperación y registro:** no. Ahí nada obliga, así que la respuesta es idéntica exista
+  o no la cuenta, y no se regala un enumerador de clientes. Hay una prueba para cada caso.
 
 #### `sesiones_web` no es control de sesión: es bitácora regulatoria
 
@@ -615,6 +638,25 @@ entre peticiones, así que el id de sesión cambia en cada una aunque los datos 
 Eso hizo fallar la primera versión de estas pruebas y fue lo que destapó el bug anterior.
 Las pruebas de tiempo usan `travel()` en vez de manipular la sesión, porque `$this->session()`
 regenera el id y dispara el control.
+
+### 2026-09-10 — Sesión 1 (continuación): recuperación, registro y correo
+
+- Recuperación de contraseña en tres pasos, que es también el desbloqueo del §4.3.1.
+- Registro de inversionista con verificación de correo por código.
+- `CodigoVerificacion` y plantilla de correo. **En local el correo va al driver `log`**
+  (`storage/logs/laravel.log`), no se envía: las credenciales de `contacto@topkapital.com`
+  mandan correo real y no tiene caso arriesgar eso desde una máquina de desarrollo.
+  Pasar a SMTP es sólo configuración.
+- `HistorialContrasena`, con la prohibición de reúso.
+- **Bug corregido:** `fechaCodigoRecuperarCuenta` no tenía cast, así que llegaba como
+  cadena y `CodigoOtp` reventaba con un `TypeError` en plena recuperación. Se agregó el
+  cast y el servicio ahora normaliza la fecha, para que el mismo descuido en otro campo
+  OTP no vuelva a romperlo.
+- Suite: **65 pruebas, 170 aserciones.**
+
+**Verificado en el navegador**, no sólo con pruebas: alta → correo en el log → captura del
+código → cuenta activada → redirección al login. El usuario de prueba se borró después;
+la tabla `usuario` sigue con sus 174 filas.
 
 **Siguiente paso natural:** completar los componentes que faltan de la Fase 1
 (`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,

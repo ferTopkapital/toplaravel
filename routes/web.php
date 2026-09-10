@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RecuperarPasswordController;
+use App\Http\Controllers\Auth\RegistroController;
 use App\Http\Controllers\SesionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,6 +55,21 @@ Route::middleware('guest')->group(function () {
 
     Route::post('/recuperar/restablecer', [RecuperarPasswordController::class, 'restablecer'])
         ->middleware('throttle:10,1');
+
+    /* Alta de clientes inversionistas (manual §3.1.1). */
+    Route::get('/registro', [RegistroController::class, 'mostrar'])->name('registro');
+
+    Route::post('/registro', [RegistroController::class, 'registrar'])
+        ->middleware('throttle:5,1');
+
+    Route::get('/registro/verificar', [RegistroController::class, 'verificar'])
+        ->name('registro.verificar');
+
+    Route::post('/registro/verificar', [RegistroController::class, 'confirmarCodigo'])
+        ->middleware('throttle:10,1');
+
+    Route::post('/registro/reenviar', [RegistroController::class, 'reenviarCodigo'])
+        ->middleware('throttle:3,1');
 });
 
 Route::post('/logout', [LoginController::class, 'salir'])

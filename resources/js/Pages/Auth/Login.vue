@@ -7,7 +7,7 @@
  * plataforma legítima y no en un sitio que la suplanta.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
-import { Head, useForm, usePage } from '@inertiajs/vue3';
+import { Head, Link, useForm, usePage } from '@inertiajs/vue3';
 import AuthLayout from '@/Layouts/AuthLayout.vue';
 import Button from '@/Components/ui/Button.vue';
 import Input from '@/Components/ui/Input.vue';
@@ -121,6 +121,11 @@ const relojOtp = computed(() => {
         <Button href="/recuperar" variant="ghost" size="sm" block>
             Olvidé mi contraseña
         </Button>
+
+        <p class="pt-1 text-center text-sm text-fg-muted">
+            ¿No tienes cuenta?
+            <Link href="/registro" class="font-medium text-accent">Regístrate</Link>
+        </p>
     </form>
 
     <!-- ---------- Paso 2: imagen de seguridad + credenciales ---------- -->
