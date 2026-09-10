@@ -275,10 +275,13 @@ primero lo que da la mejora de velocidad percibida y dejar al final lo más ries
 - [x] Detectar el stack local (Apache 2.4 + `mod_php` 8.2, MariaDB, sin Node)
 - [x] Instalar Node.js 24 LTS
 - [x] `composer create-project laravel/laravel toplaravel`
-- [ ] Instalar Inertia 2 + Vue 3 + TypeScript + Tailwind 4 + Vite
-- [ ] Configurar `.env` contra la BD `topkapital` existente
-- [ ] Vhost `toplaravel.loc` + entrada en `hosts`
-- [ ] Primer commit y push a `ferTopkapital/toplaravel`
+- [x] Instalar Inertia 2 + Vue 3 + TypeScript + Tailwind 4 + Vite
+- [x] Configurar `.env` contra la BD `topkapital` existente (verificado: `db:show` lee las 44 tablas)
+- [x] Deshabilitar las migraciones de andamiaje de Laravel; sesión/caché a `file`, colas a `sync`
+- [x] Vhost `toplaravel.loc` agregado a `httpd-vhosts.conf`
+- [ ] **Pendiente (requiere admin):** entrada en `hosts` + reinicio de Apache
+- [x] Primer commit
+- [ ] **Pendiente:** push a `ferTopkapital/toplaravel`
 
 ### Fase 1 — Design system y layouts
 
@@ -445,5 +448,24 @@ pantalla contra pantalla durante toda la migración.
   incluidas 3 discrepancias contra el código.
 - Decisiones tomadas con el usuario: **Inertia 2 + Vue 3**; instalar Node vía winget.
 - Node.js 24 LTS instalado.
-- Laravel 12 creado en `C:\dev\toplaravel`.
-- Este documento.
+- Laravel 12.69.2 creado en `C:\dev\toplaravel`, con Inertia 2, Vue 3, TypeScript,
+  Tailwind 4, Reka UI y Ziggy.
+- Conexión a la BD compartida verificada (`artisan db:show` → 44 tablas, 6.83 MB).
+  Se confirmó que **no** se creó ninguna tabla nueva en el esquema.
+- Design system inicial: tokens semánticos, tema claro/oscuro/sistema sin FOUC,
+  `Button`, `Select` (sobre Reka UI, con buscador), `Input`, `Card`, `Badge`,
+  `Skeleton`, `ThemeToggle`, `AppLayout` y el catálogo en `/ui`.
+- `npm run build` compila limpio: 70 KB gzip de JS, 6 KB de CSS.
+- Vhost `toplaravel.loc` agregado.
+- Primer commit hecho.
+
+**Lo que quedó pendiente y por qué:**
+
+1. **Entrada en `hosts` y reinicio de Apache.** Requieren permisos de
+   administrador; hay que correrlos desde una terminal elevada.
+2. **Push al repositorio.** El entorno bloqueó las operaciones con el remoto.
+   El commit ya está hecho en local; falta agregar el remoto y empujar.
+
+**Siguiente paso natural:** Fase 1 — completar el design system (`DataTable`,
+`Stepper`, `Modal`, `DatePicker`, `MoneyInput`) y, en paralelo, resolver con
+Cumplimiento las 3 discrepancias del §8 antes de entrar a la Fase 2.
