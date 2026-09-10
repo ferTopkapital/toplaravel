@@ -3,6 +3,8 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RecuperarPasswordController;
 use App\Http\Controllers\Auth\RegistroController;
+use App\Http\Controllers\PanelController;
+use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\SesionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -89,21 +91,17 @@ Route::middleware('auth')->group(function () {
     Route::post('/sesion/renovar', [SesionController::class, 'renovar'])->name('sesion.renovar');
 });
 
-Route::get('/', function () {
-    // Consulta directa a proposito: los modelos Eloquent mapeados al esquema
-    // existente llegan en la fase 1; aqui solo se valida la conexion.
-    $stats = [
-        ['label' => 'Usuarios', 'value' => DB::table('usuario')->count()],
-        ['label' => 'Proyectos', 'value' => DB::table('proyecto')->count()],
-        ['label' => 'Inversiones', 'value' => DB::table('solicitud_inversion')->count()],
-        ['label' => 'Promotores', 'value' => DB::table('promotor')->count()],
-    ];
+/*
+ * Portal del inversionista (Fase 3). Todo detrás de `auth`: son datos
+ * financieros del cliente.
+ */
+Route::middleware('auth')->group(function () {
+    Route::get('/', [PanelController::class, 'index'])->name('panel');
 
-    return Inertia::render('Panel', [
-        'stats' => $stats,
-        'laravel' => app()->version(),
-        'php' => PHP_VERSION,
-    ]);
+    Route::get('/proyectos', [ProyectoController::class, 'index'])->name('proyectos');
+    Route::get('/proyectos/{proyectoId}', [ProyectoController::class, 'detalle'])
+        ->whereNumber('proyectoId')
+        ->name('proyectos.detalle');
 });
 
 // Catalogo del design system. Se mantiene durante toda la migracion.

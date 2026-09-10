@@ -98,4 +98,22 @@ return [
         'umbral_nivel_2' => 5000.00,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Archivos en S3
+    |--------------------------------------------------------------------------
+    |
+    | Las imágenes de proyectos y los documentos viven en el bucket que ya usa
+    | la app Yii2. Como el bucket sirve los objetos con ACL `public-read`, para
+    | MOSTRARLOS basta construir la URL: no hace falta el SDK de AWS ni
+    | credenciales. Subir o firmar URLs sí las necesitará, y eso llega con la
+    | Fase 4.
+    |
+    */
+
+    's3' => [
+        'bucket' => env('S3_DEFAULT_BUCKET', 'topkapital-dev'),
+        'region' => env('S3_REGION', 'us-west-2'),
+    ],
+
 ];

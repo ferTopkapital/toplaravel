@@ -408,10 +408,52 @@ colar.
 
 ### Fase 3 — Portal del inversionista (mayor impacto en velocidad)
 
-- Dashboard/panel: resumen, mis inversiones, calendario de pagos, noticias, documentos.
-- Listado de proyectos con tarjetas + detalle del proyecto.
-- Perfil: información general, beneficiarios, archivos, y cuentas bancarias
-  **en sólo lectura** (se detectan solas al recibir el pago por STP; ver §8, punto 3).
+- [x] Panel: capital invertido, número de proyectos, pendientes de depósito,
+      mis inversiones, noticias y proyectos en fondeo.
+- [x] Listado de proyectos con tarjetas y filtro por etapa.
+- [x] Detalle del proyecto con galería y condiciones de la campaña.
+- [ ] Falta: calendario de pagos y documentos.
+- [ ] Falta: perfil (información general, beneficiarios, archivos, y cuentas bancarias
+      **en sólo lectura** — se detectan solas al recibir el pago por STP; ver §8, punto 3).
+
+#### Las condiciones se leen de la CAMPAÑA, no del proyecto
+
+Un proyecto puede fondearse en varias vueltas. El monto objetivo, el plazo, la tasa y la
+etapa viven en `campana`, no en `proyecto`. Leerlos del proyecto mostraría las condiciones
+de una vuelta anterior — es decir, una tasa equivocada al cliente.
+
+Por eso tanto el listado como el detalle se arman sobre `Campana` y usan `campanaActual`,
+que es la de `campanaId` más alto.
+
+#### Qué cuenta como capital vigente
+
+El scope `SolicitudInversion::vivas()` define las cifras del panel: `confirmada = 1`,
+`devuelto = 0` y no cancelada. Es el mismo criterio de la app Yii2, más la exclusión de
+canceladas.
+
+**Cambiar ese scope cambia lo que el cliente ve como su dinero.** No tocarlo sin comparar
+contra lo que muestra la app Yii2 para el mismo usuario. Hay pruebas que fijan el
+comportamiento, incluida una que verifica que el panel no mezcle el dinero de otro cliente.
+
+#### Los archivos de S3 NO son públicos
+
+`topkapital-env.conf` declara `S3_ACL=public-read`, pero **los objetos responden 403** a
+una URL directa (comprobado con `curl`). Hay que firmarlas, igual que hace la app Yii2 con
+`getPresignedUrl()`.
+
+`Proyecto::urlDeS3()` usa `Storage::disk('s3')->temporaryUrl()` y **devuelve null** si
+faltan credenciales o falla la firma: sin ellas la tarjeta dibuja su marcador y la pantalla
+sigue siendo usable. Una imagen que no carga no debe tumbar el panel del cliente.
+
+**Para ver las imágenes hay que agregar al `.env`** (los valores están en
+`C:\dev\Apache24\conf\extra\topkapital-env.conf`):
+
+```
+AWS_ACCESS_KEY_ID=...
+AWS_SECRET_ACCESS_KEY=...
+AWS_DEFAULT_REGION=us-west-2
+AWS_BUCKET=topkapital-dev
+```
 
 ### Fase 4 — Onboarding (wizards)
 
@@ -657,6 +699,30 @@ regenera el id y dispara el control.
 **Verificado en el navegador**, no sólo con pruebas: alta → correo en el log → captura del
 código → cuenta activada → redirección al login. El usuario de prueba se borró después;
 la tabla `usuario` sigue con sus 174 filas.
+
+### 2026-09-10 — Sesión 1 (continuación): Fase 3, portal del inversionista
+
+- Modelos del negocio: `Proyecto`, `Campana`, `SolicitudInversion`, `Noticia`, `Promotor`.
+- Panel con cifras reales y **deferred props** de Inertia 2: el resumen se pinta de
+  inmediato y las tres secciones pesadas llegan después, con skeletons mientras tanto.
+  Es la razón de ser de Inertia aquí.
+- Listado de proyectos con filtro por etapa (recarga parcial) y detalle con galería.
+- `MoneyFormat.ts` centraliza el formato es-MX. Si cada vista arma su propio
+  `Intl.NumberFormat`, tarde o temprano una muestra `$1,000` y otra `$1,000.00` para el
+  mismo dato, y en una app financiera eso se lee como un error de saldo.
+- Todas las rutas del portal detrás de `auth`.
+- 8 pruebas nuevas. Suite: **71 pruebas, 227 aserciones.**
+- Se eliminaron los `ExampleTest` de andamiaje: el de Feature afirmaba que `/` respondía
+  200, cosa que dejó de ser cierta al proteger el portal, y su intención ya está cubierta
+  por `PortalTest`.
+
+**Hallazgo:** los archivos de S3 no son públicos pese a lo que declara la configuración
+(403 comprobado). Ver la Fase 3 arriba.
+
+**Verificado a ojo** con un inversionista temporal: el panel mostró
+`$165,000.00` de capital, sus dos inversiones y el nombre con la fecha del ingreso
+anterior. Los datos de prueba se borraron después; `usuario` volvió a 174 filas y
+`solicitud_inversion` a 17.
 
 **Siguiente paso natural:** completar los componentes que faltan de la Fase 1
 (`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,

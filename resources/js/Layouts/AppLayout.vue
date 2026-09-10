@@ -51,15 +51,29 @@ function salir(): void {
  */
 const claveRuta = computed(() => page.url.split('?')[0]);
 
-// Provisional: refleja el menu de la app Yii2 (frontend/views/layouts/partials/menu.php).
-// Se ira poblando conforme avancen las fases 3 a 5 del plan de migracion.
-const nav = [
-    { label: 'Panel', href: '/', icon: 'M3 10.5 10 4l7 6.5V16a1 1 0 0 1-1 1h-3v-4H8v4H5a1 1 0 0 1-1-1v-5.5Z' },
-    { label: 'Proyectos', href: '/proyectos', icon: 'M3 6h14M3 10h14M3 14h9' },
-    { label: 'Mis inversiones', href: '/inversiones', icon: 'M4 15V9m4 6V5m4 10v-4m4 4V7' },
-    { label: 'Documentos', href: '/documentos', icon: 'M6 3h5l3 3v11H6V3Zm5 0v3h3' },
-    { label: 'Componentes', href: '/ui', icon: 'M4 4h5v5H4V4Zm7 0h5v5h-5V4ZM4 11h5v5H4v-5Zm7 0h5v5h-5v-5Z' },
-];
+/**
+ * Menú del portal. Sólo se listan destinos que YA existen: un enlace a una
+ * ruta sin implementar es peor que no tener el enlace.
+ *
+ * Faltan por llegar, con sus fases: Documentos y Calendario (Fase 3),
+ * Perfil (Fase 4), Mis inversiones a detalle (Fase 5).
+ */
+const nav = computed(() => {
+    const items = [
+        { label: 'Panel', href: '/', icon: 'M3 10.5 10 4l7 6.5V16a1 1 0 0 1-1 1h-3v-4H8v4H5a1 1 0 0 1-1-1v-5.5Z' },
+        { label: 'Proyectos', href: '/proyectos', icon: 'M3 6h14M3 10h14M3 14h9' },
+    ];
+
+    // El catálogo del design system no es parte del producto; se muestra
+    // sólo mientras dura la migración.
+    items.push({
+        label: 'Componentes',
+        href: '/ui',
+        icon: 'M4 4h5v5H4V4Zm7 0h5v5h-5V4ZM4 11h5v5H4v-5Zm7 0h5v5h-5v-5Z',
+    });
+
+    return items;
+});
 </script>
 
 <template>
