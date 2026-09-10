@@ -48,7 +48,7 @@ interno), `console/` (tareas programadas), más `common/` (modelos y componentes
 | `ProyectoController` (1304 L) | 15 | 20 | Listado y detalle de proyectos, flujo completo de inversión (invertir → documentos → confirmar con OTP → contrato → constancia → depósito), wizard de alta de proyecto por el solicitante (5 pasos), cancelación |
 | `UsuarioController` (864 L) | 12 | 11 | Wizard de onboarding del inversionista (5 pasos), documentos, identidad (Incode), envío a PLD, detalle de intereses |
 | `SolicitanteController` (390 L) | 2 | 6 | Wizard de onboarding del solicitante (5 pasos) |
-| `CuentaBancariaController` (232 L) | 5 | 7 | Alta y confirmación de cuentas bancarias |
+| `CuentaBancariaController` (232 L) | 5 | 7 | Alta y confirmación manual de cuentas bancarias. **Heredado: no se porta** — la cuenta se detecta sola al recibir el pago por STP (§8, punto 3) |
 | `BeneficiarioController` (167 L) | 4 | 7 | Beneficiarios designados por el inversionista |
 | `PanelController` (127 L) | 7 | 6 | Dashboard: resumen, solicitudes, inversiones, calendario, noticias, documentos |
 | `UsuarioDatosController` (95 L) | 2 | — | Información general del perfil |
@@ -317,7 +317,8 @@ Todo lo de este bloque está normado; ver §8.
 
 - Dashboard/panel: resumen, mis inversiones, calendario de pagos, noticias, documentos.
 - Listado de proyectos con tarjetas + detalle del proyecto.
-- Perfil: información general, beneficiarios, archivos, cuentas bancarias.
+- Perfil: información general, beneficiarios, archivos, y cuentas bancarias
+  **en sólo lectura** (se detectan solas al recibir el pago por STP; ver §8, punto 3).
 
 ### Fase 4 — Onboarding (wizards)
 
@@ -393,10 +394,16 @@ Hay que resolverlas **antes** de la Fase 2, porque definen el comportamiento a i
    de PHP (**bcrypt**), que es lo correcto desde el punto de vista de seguridad. Parece un
    error de redacción del manual, no del código: se conserva bcrypt y se sugiere corregir
    el manual.
-3. **Cuentas bancarias.** El manual (§1.1.2, 3.1.1) dice que la cuenta se identifica
-   automáticamente en la primera transferencia y que **no** se captura en el onboarding.
-   El código tiene `CuentaBancariaController` con alta y confirmación manual. Hay que
-   confirmar cuál es el comportamiento vigente.
+3. ~~**Cuentas bancarias.**~~ **RESUELTO (2026-09-10).** El comportamiento vigente es el
+   del manual: la cuenta bancaria **se detecta automáticamente al recibir el pago por STP**,
+   validando titular, RFC, monto y referencia contra el perfil del inversionista. El
+   inversionista **no** la captura.
+
+   Consecuencia para la migración: el `CuentaBancariaController` del frontend Yii2
+   (alta + confirmación manual, 232 líneas, 7 vistas) es código heredado y **no se porta**.
+   En Laravel, "Cuentas bancarias" en el perfil es una vista de **sólo lectura** que
+   muestra la(s) cuenta(s) ya identificadas. El alta real ocurre en el webhook de STP
+   (Fase 7), no en una pantalla.
 
 ---
 
@@ -462,9 +469,14 @@ pantalla contra pantalla durante toda la migración.
 **Lo que quedó pendiente y por qué:**
 
 1. **Entrada en `hosts` y reinicio de Apache.** Requieren permisos de
-   administrador; hay que correrlos desde una terminal elevada.
+   administrador. Se dejó listo `C:\dev\setup-toplaravel.ps1` (idempotente, valida
+   la config de Apache antes de reiniciar); hay que correrlo elevado.
 2. **Push al repositorio.** El entorno bloqueó las operaciones con el remoto.
-   El commit ya está hecho en local; falta agregar el remoto y empujar.
+   Los commits ya están hechos en local; falta agregar el remoto y empujar.
+
+**Aclaración recibida del usuario (2026-09-10):** la cuenta bancaria **sí** se
+detecta automáticamente al recibir el pago por STP. Queda resuelta la discrepancia
+3 del §8 y `CuentaBancariaController` sale del alcance de la migración.
 
 **Siguiente paso natural:** Fase 1 — completar el design system (`DataTable`,
 `Stepper`, `Modal`, `DatePicker`, `MoneyInput`) y, en paralelo, resolver con
