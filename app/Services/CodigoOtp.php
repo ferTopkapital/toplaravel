@@ -48,7 +48,7 @@ class CodigoOtp
         ?string $campoFecha = null,
     ): bool {
         $esperado = $usuario->{$campo};
-        $emitido = $usuario->{$campoFecha ?? $this->campoFechaDe($campo)};
+        $emitido = $this->comoFecha($usuario->{$campoFecha ?? $this->campoFechaDe($campo)});
 
         if (blank($esperado) || blank($capturado) || $emitido === null) {
             return false;
@@ -76,7 +76,7 @@ class CodigoOtp
     /** Segundos que le quedan de vida al código, para la cuenta regresiva. */
     public function segundosRestantes(Usuario $usuario, string $campo = 'codigoLogin', ?string $campoFecha = null): int
     {
-        $emitido = $usuario->{$campoFecha ?? $this->campoFechaDe($campo)};
+        $emitido = $this->comoFecha($usuario->{$campoFecha ?? $this->campoFechaDe($campo)});
 
         if ($emitido === null) {
             return 0;
@@ -90,6 +90,28 @@ class CodigoOtp
     private function expiro(Carbon $emitido): bool
     {
         return $emitido->diffInSeconds(now()) > config('topkapital.otp.vigencia_segundos');
+    }
+
+    /**
+     * Normaliza la fecha de emisión.
+     *
+     * El servicio se usa con varios campos de la tabla `usuario`
+     * (`codigoLogin`, `codigoRecuperarCuenta`, `codigoInversion`...) y basta
+     * con que a uno se le olvide el cast en el modelo para que aquí llegue una
+     * cadena. Normalizar en un solo punto evita que ese descuido se convierta
+     * en un TypeError en plena recuperación de contraseña.
+     */
+    private function comoFecha(mixed $valor): ?Carbon
+    {
+        if ($valor instanceof Carbon) {
+            return $valor;
+        }
+
+        if (is_string($valor) && $valor !== '') {
+            return Carbon::parse($valor);
+        }
+
+        return null;
     }
 
     /**

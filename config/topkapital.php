@@ -58,6 +58,25 @@ return [
 
         /* Palabras que no pueden aparecer en la contraseña. */
         'prohibidas' => ['topkapital', 'top kapital'],
+
+        /*
+         * Cuántas contraseñas anteriores se comparan para impedir reúso.
+         *
+         * `null` = todo el historial.
+         *
+         * Se deja en `null` para NO relajar el comportamiento actual. En la
+         * app Yii2 esto se lee de `Yii::$app->params['maxPasswordHistory']`,
+         * que **no está definido en ningún archivo de params**: la expresión
+         * evalúa a null, `limit(null)` significa "sin límite" y termina
+         * comparando contra todo el historial. Es decir, el comportamiento
+         * vigente es "nunca reutilizar ninguna contraseña previa" — por
+         * accidente, y emitiendo un warning de PHP en cada reset.
+         *
+         * Poner aquí un número finito sería aflojar un control de seguridad,
+         * así que si se decide hacerlo debe ser una decisión consciente y
+         * documentada, no una corrección silenciosa del descuido.
+         */
+        'historial_comparado' => null,
     ],
 
     'bloqueo' => [

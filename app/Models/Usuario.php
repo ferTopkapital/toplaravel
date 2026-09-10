@@ -51,7 +51,11 @@ class Usuario extends Model implements AuthenticatableContract
             'imagenPerfil' => 'integer',
             'terminosCondiciones' => 'boolean',
             'fechaNacimiento' => 'date',
+            // Todas las fechas de códigos OTP: si alguna se queda sin cast,
+            // CodigoOtp la recibe como texto en vez de Carbon.
             'fechaCodigoLogin' => 'datetime',
+            'fechaCodigoRecuperarCuenta' => 'datetime',
+            'intentosRecuperarCuenta' => 'integer',
             'ultimoLogin' => 'datetime',
             // El ingreso ANTERIOR. Es el que se le muestra al cliente al
             // iniciar sesión, según el manual §1.4 — no el de ahora mismo.

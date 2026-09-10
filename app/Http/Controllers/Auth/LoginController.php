@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Middleware\ControlDeSesion;
+use App\Mail\CodigoVerificacion;
 use App\Models\SesionWeb;
 use App\Models\Usuario;
 use App\Services\CodigoOtp;
@@ -12,6 +13,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -81,9 +83,14 @@ class LoginController extends Controller
         if ($requiereOtp) {
             $codigo = $this->otp->generar($usuario);
 
-            // TODO(Fase 2): enviar por correo. Mientras el mailer no está
-            // conectado se deja en el log para poder probar el flujo completo.
-            logger()->info("OTP de acceso para {$usuario->email}: {$codigo}");
+            Mail::to($usuario->email)->send(new CodigoVerificacion(
+                nombre: (string) $usuario->nombre,
+                codigo: $codigo,
+                motivo: $usuario->agotoIntentos()
+                    ? 'Por seguridad bloqueamos el acceso con contraseña tras varios intentos fallidos. Usa este código para volver a entrar.'
+                    : 'Hacía tiempo que no entrabas, así que necesitamos verificar que eres tú.',
+                vigenciaMinutos: (int) ceil(config('topkapital.otp.vigencia_segundos') / 60),
+            ));
         }
 
         // El correo se guarda en sesión para que el paso 2 no dependa de que

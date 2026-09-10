@@ -38,6 +38,9 @@ const page = usePage();
  */
 const motivoCierre = computed(() => (page.props.flash as any)?.error ?? null);
 
+/** Confirmación tras restablecer la contraseña. */
+const aviso = computed(() => (page.props.flash as any)?.success ?? null);
+
 const formIdentificador = useForm({ email: '' });
 const formCredenciales = useForm({ password: '', codigo: '' });
 
@@ -88,6 +91,10 @@ const relojOtp = computed(() => {
         {{ motivoCierre }}
     </Alert>
 
+    <Alert v-if="aviso" tone="success" class="mb-5">
+        {{ aviso }}
+    </Alert>
+
     <!-- ---------- Paso 1: identificador ---------- -->
     <form v-if="paso === 'identificador'" class="space-y-5" @submit.prevent="identificar">
         <div>
@@ -109,6 +116,10 @@ const relojOtp = computed(() => {
 
         <Button type="submit" block :loading="formIdentificador.processing">
             Continuar
+        </Button>
+
+        <Button href="/recuperar" variant="ghost" size="sm" block>
+            Olvidé mi contraseña
         </Button>
     </form>
 

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\RecuperarPasswordController;
 use App\Http\Controllers\SesionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -36,6 +37,22 @@ Route::middleware('guest')->group(function () {
         ->middleware('throttle:10,1');
 
     Route::post('/login', [LoginController::class, 'entrar'])
+        ->middleware('throttle:10,1');
+
+    /*
+     * Recuperación de contraseña (manual §4.2.4 y §4.4.2). Es también el
+     * camino de desbloqueo cuando la cuenta agotó sus 10 intentos (§4.3.1).
+     */
+    Route::get('/recuperar', [RecuperarPasswordController::class, 'solicitar'])
+        ->name('password.solicitar');
+
+    Route::post('/recuperar', [RecuperarPasswordController::class, 'enviarCodigo'])
+        ->middleware('throttle:5,1');
+
+    Route::post('/recuperar/verificar', [RecuperarPasswordController::class, 'verificarCodigo'])
+        ->middleware('throttle:10,1');
+
+    Route::post('/recuperar/restablecer', [RecuperarPasswordController::class, 'restablecer'])
         ->middleware('throttle:10,1');
 });
 
