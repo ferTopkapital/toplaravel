@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
@@ -38,3 +39,38 @@ Route::get('/', function () {
 
 // Catalogo del design system. Se mantiene durante toda la migracion.
 Route::get('/ui', fn () => Inertia::render('Ui'));
+
+/*
+ * Demo de la DataTable contra una tabla real del negocio.
+ *
+ * Se usa `actividad_economica` (1,214 filas, catalogo del SAT) a proposito:
+ * tiene volumen suficiente para probar orden, filtro y paginacion, y no
+ * contiene datos personales. Aqui se valida de punta a punta que la recarga
+ * parcial de Inertia funciona contra la base compartida.
+ */
+Route::get('/ui/tabla', function (Request $request) {
+    // Lista blanca: el nombre de columna llega del cliente y se interpola en
+    // el ORDER BY, asi que nunca se pasa lo que venga en la query string.
+    $ordenables = ['actividadEconomicaID', 'nombre', 'riesgo', 'categoria'];
+
+    $sort = in_array($request->query('sort'), $ordenables, true)
+        ? $request->query('sort')
+        : 'actividadEconomicaID';
+
+    $direction = $request->query('direction') === 'desc' ? 'desc' : 'asc';
+    $search = trim((string) $request->query('search', ''));
+
+    $actividades = DB::table('actividad_economica')
+        ->select('actividadEconomicaID', 'nombre', 'riesgo', 'categoria')
+        ->when($search !== '', fn ($q) => $q->where('nombre', 'like', "%{$search}%"))
+        ->orderBy($sort, $direction)
+        ->paginate(15)
+        ->withQueryString();
+
+    return Inertia::render('UiTabla', [
+        'actividades' => $actividades,
+        'sort' => $sort,
+        'direction' => $direction,
+        'search' => $search,
+    ]);
+});

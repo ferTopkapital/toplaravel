@@ -14,10 +14,30 @@ import Input from '@/Components/ui/Input.vue';
 import Badge from '@/Components/ui/Badge.vue';
 import Select, { type SelectOption } from '@/Components/ui/Select.vue';
 import Skeleton from '@/Components/ui/Skeleton.vue';
+import Modal from '@/Components/ui/Modal.vue';
+import Alert from '@/Components/ui/Alert.vue';
+import Checkbox from '@/Components/ui/Checkbox.vue';
+import Textarea from '@/Components/ui/Textarea.vue';
+import MoneyInput from '@/Components/ui/MoneyInput.vue';
+import Stepper, { type Paso } from '@/Components/wizard/Stepper.vue';
 
 const banco = ref<string>();
 const monto = ref('');
 const cargando = ref(false);
+const modalAbierto = ref(false);
+const acepta = ref(false);
+const notas = ref('');
+const inversion = ref<number>();
+const pasoActual = ref(2);
+
+// Los pasos reales del onboarding del inversionista (frontend/views/usuario).
+const pasos: Paso[] = [
+    { id: 1, label: 'Información', hint: 'Datos generales' },
+    { id: 2, label: 'Beneficiarios' },
+    { id: 3, label: 'Archivos', hint: 'Sólo KYC nivel 2' },
+    { id: 4, label: 'Constancia' },
+    { id: 5, label: 'Contrato', hint: 'Firma digitalizada' },
+];
 
 // Muestra de datos reales del catalogo `bancos` para probar el buscador.
 const bancos: SelectOption<string>[] = [
@@ -103,6 +123,122 @@ function simularEnvio(): void {
                     hint="Mínimo $1,000.00 MXN"
                 />
             </div>
+        </Card>
+
+        <Card title="Formulario" subtitle="Campo de moneda en es-MX, casilla y área de texto.">
+            <div class="grid gap-4 sm:grid-cols-2">
+                <MoneyInput
+                    id="inversion"
+                    v-model="inversion"
+                    label="Monto a invertir"
+                    hint="Se edita en crudo y se formatea al salir del campo."
+                />
+
+                <div class="flex items-end">
+                    <p class="text-xs text-fg-subtle">
+                        Valor en el modelo:
+                        <code class="text-fg">{{ inversion ?? '—' }}</code>
+                        <span class="block">(número, no la cadena formateada)</span>
+                    </p>
+                </div>
+
+                <div class="sm:col-span-2">
+                    <Textarea
+                        id="notas"
+                        v-model="notas"
+                        label="Notas"
+                        placeholder="Observaciones del expediente…"
+                        :rows="3"
+                    />
+                </div>
+
+                <div class="sm:col-span-2">
+                    <Checkbox id="acepta" v-model="acepta">
+                        Confirmo que la información de la operación es correcta.
+                    </Checkbox>
+                </div>
+            </div>
+        </Card>
+
+        <Card title="Pasos del wizard" subtitle="Uno solo para los cinco wizards de la app.">
+            <Stepper :pasos="pasos" :actual="pasoActual" @ir="pasoActual = $event" />
+
+            <template #footer>
+                <div class="flex justify-between">
+                    <Button
+                        variant="secondary"
+                        size="sm"
+                        :disabled="pasoActual === 0"
+                        @click="pasoActual--"
+                    >
+                        Anterior
+                    </Button>
+                    <Button size="sm" :disabled="pasoActual === pasos.length - 1" @click="pasoActual++">
+                        Siguiente
+                    </Button>
+                </div>
+            </template>
+        </Card>
+
+        <Card title="Avisos">
+            <div class="space-y-3">
+                <Alert tone="info" title="Cuenta bancaria">
+                    Se identificará automáticamente al recibir tu transferencia por STP.
+                </Alert>
+                <Alert tone="success" title="Perfil aprobado">
+                    Tu documentación fue revisada y ya puedes invertir.
+                </Alert>
+                <Alert tone="warn" title="Completa tu KYC">
+                    Tu inversión supera los $5,000 MXN de este mes calendario.
+                </Alert>
+                <Alert tone="danger" title="Código expirado">
+                    El código de verificación tiene una vigencia de 2 minutos.
+                </Alert>
+            </div>
+        </Card>
+
+        <Card title="Modal" subtitle="Con trampa de foco, cierre con Escape y bloqueo del scroll.">
+            <Button variant="secondary" @click="modalAbierto = true">Abrir modal</Button>
+
+            <Modal
+                v-model:open="modalAbierto"
+                title="Confirmar inversión"
+                description="Revisa las características de la operación antes de continuar."
+            >
+                <dl class="space-y-2 text-sm">
+                    <div class="flex justify-between border-b border-line pb-2">
+                        <dt class="text-fg-muted">Proyecto</dt>
+                        <dd class="font-medium text-fg">Residencial Altavista</dd>
+                    </div>
+                    <div class="flex justify-between border-b border-line pb-2">
+                        <dt class="text-fg-muted">Monto</dt>
+                        <dd class="font-medium tabular-nums text-fg">$25,000.00 MXN</dd>
+                    </div>
+                    <div class="flex justify-between border-b border-line pb-2">
+                        <dt class="text-fg-muted">Tasa</dt>
+                        <dd class="font-medium tabular-nums text-fg">16.5% anual</dd>
+                    </div>
+                    <div class="flex justify-between">
+                        <dt class="text-fg-muted">Plazo</dt>
+                        <dd class="font-medium text-fg">18 meses</dd>
+                    </div>
+                </dl>
+
+                <template #footer="{ close }">
+                    <Button variant="secondary" @click="close">Cancelar</Button>
+                    <Button @click="close">Continuar</Button>
+                </template>
+            </Modal>
+        </Card>
+
+        <Card title="Tabla de datos">
+            <p class="text-sm text-fg-muted">
+                El reemplazo del GridView vive en su propia página, con datos reales de la
+                base compartida.
+            </p>
+            <template #footer>
+                <Button href="/ui/tabla" variant="secondary" size="sm">Ver la tabla</Button>
+            </template>
         </Card>
 
         <Card title="Etiquetas de estado">

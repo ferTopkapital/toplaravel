@@ -1,10 +1,22 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { Link, usePage } from '@inertiajs/vue3';
 import ThemeToggle from '@/Components/ui/ThemeToggle.vue';
 
 const page = usePage();
 const sidebarOpen = ref(false);
+
+/**
+ * Clave de la transicion de pagina: SOLO la ruta, sin query string.
+ *
+ * Si se usara `page.url` completo, cada orden, filtro o cambio de pagina de
+ * una tabla cambiaria la clave y remontaria la pagina entera — perdiendo el
+ * foco del buscador, el estado del componente y cualquier ganancia de la
+ * recarga parcial. Con la ruta sola, esas interacciones no animan nada
+ * (que es lo correcto: el usuario no cambio de pantalla) y solo se anima al
+ * navegar de verdad.
+ */
+const claveRuta = computed(() => page.url.split('?')[0]);
 
 // Provisional: refleja el menu de la app Yii2 (frontend/views/layouts/partials/menu.php).
 // Se ira poblando conforme avancen las fases 3 a 5 del plan de migracion.
@@ -39,7 +51,7 @@ const nav = [
                     :href="item.href"
                     :class="[
                         'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors duration-150',
-                        page.url === item.href
+                        claveRuta === item.href
                             ? 'bg-accent/10 text-accent'
                             : 'text-fg-muted hover:bg-surface-sunken hover:text-fg',
                     ]"
@@ -88,12 +100,13 @@ const nav = [
             </header>
 
             <!--
-                Transicion de pagina. La clave por URL hace que Vue desmonte y
-                remonte al navegar, que es lo que dispara la animacion.
+                Transicion de pagina. La clave es la ruta sin query string
+                (ver `claveRuta`): asi solo anima al cambiar de pantalla, no
+                al ordenar o paginar una tabla.
             -->
             <main class="p-4 sm:p-6">
                 <Transition name="page" mode="out-in">
-                    <div :key="page.url">
+                    <div :key="claveRuta">
                         <slot />
                     </div>
                 </Transition>

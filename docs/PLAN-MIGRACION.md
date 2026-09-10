@@ -202,7 +202,7 @@ class Usuario extends Authenticatable
 | `proyecto` tiene PK compuesta `(proyectoId, datosGeneralesCompleta)` | Eloquent no soporta PK compuestas | `proyectoId` es `AUTO_INCREMENT`, por lo tanto único por sí solo. Se declara `$primaryKey = 'proyectoId'` y funciona. **No** intentar "arreglar" la PK en la BD compartida |
 | PKs en `camelCase` distintas por tabla | Todas las relaciones necesitan FK explícita | Se declara `$primaryKey` y se pasan las llaves en cada `hasMany`/`belongsTo` |
 | Sin `created_at`/`updated_at` | Los `$timestamps` por defecto rompen los `INSERT` | `public $timestamps = false` en todos los modelos |
-| Contraseñas hasheadas por Yii2 | El login de Laravel fallaría | Yii2 usa `password_hash` con bcrypt → **compatible con `Hash::check()` de Laravel**. Verificar en el primer sprint con un usuario real de la BD local |
+| Contraseñas hasheadas por Yii2 | El login de Laravel fallaría | **Verificado 2026-09-10:** los 174 usuarios tienen hashes `$2y$` (bcrypt, 60 chars) y `Hash::check()` de Laravel los valida; también al revés. Yii2 hashea con **coste 13** y Laravel usa 12 por defecto, así que se fijó `BCRYPT_ROUNDS=13` para que un cambio de contraseña desde Laravel no debilite el hash |
 | Sesiones en `yii_session` (19,915 filas) y `session` | Dos apps escribiendo sesiones | Laravel usa su propia tabla/driver. **No compartir sesión entre ambas apps**; son logins independientes durante la transición |
 | Borrado lógico vía `deletedAt`/`deletedBy` | `SoftDeletes` espera `deleted_at` | `const DELETED_AT = 'deletedAt';` en los modelos que aplique |
 
@@ -287,15 +287,31 @@ primero lo que da la mejora de velocidad percibida y dejar al final lo más ries
 
 Construir el kit antes que las pantallas, para no rehacer 100 vistas después.
 
-- Tokens de color, tipografía y espaciado; modo claro/oscuro/sistema funcionando.
-- Componentes `ui/`: `Button`, `Input`, `Select`, `Combobox`, `Checkbox`, `Radio`,
-  `Switch`, `Textarea`, `DatePicker`, `MoneyInput`, `Card`, `Badge`, `Alert`, `Modal`,
-  `Tabs`, `Tooltip`, `Dropdown`.
-- `DataTable` con orden, filtro y paginación server-side (reemplazo de GridView).
-- `Stepper` para los wizards.
-- Skeletons y transiciones de página.
-- `AppLayout`, `AdminLayout`, `AuthLayout`.
-- **Entregable:** una página `/ui` con el catálogo completo de componentes en ambos temas.
+- [x] Tokens de color, tipografía y espaciado; modo claro/oscuro/sistema funcionando.
+- [x] `Button`, `Input`, `Select`, `Checkbox`, `Textarea`, `MoneyInput`, `Card`, `Badge`,
+      `Alert`, `Modal`, `Skeleton`, `ThemeToggle`.
+- [ ] Faltan: `Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`.
+- [x] `DataTable` con orden, filtro y paginación server-side (reemplazo de GridView),
+      verificada contra `actividad_economica` (1,214 filas).
+- [x] `Stepper` para los wizards.
+- [x] Skeletons y transiciones de página.
+- [x] `AppLayout`. [ ] Faltan `AdminLayout` y `AuthLayout`.
+- [x] **Entregable:** catálogo en `/ui` y demo de tabla en `/ui/tabla`.
+
+#### Lección aprendida: la clave de la transición de página
+
+La transición de `AppLayout` se keyeaba con `page.url` **completo**. Efecto: cada orden,
+filtro o cambio de página de una tabla cambiaba la clave y **remontaba la página entera**,
+perdiendo el foco del buscador y anulando la ganancia de la recarga parcial — justo lo
+contrario del objetivo del rewrite. Además, si la animación se interrumpía, el contenido
+quedaba invisible en `opacity: 0`.
+
+La clave correcta es **la ruta sin query string**. Así sólo se anima al cambiar de
+pantalla de verdad. Cualquier layout nuevo debe hacer lo mismo.
+
+Corolario para la `DataTable`: la recarga parcial debe pedir también `sort`, `direction`
+y `search`, no sólo los datos. Si no, esas props se quedan en el valor viejo y el
+indicador de orden de la columna nunca se mueve.
 
 ### Fase 2 — Autenticación y sesión (bloque regulatorio)
 
@@ -387,9 +403,15 @@ la CNBV. Cualquier cambio de comportamiento en el rewrite es un incumplimiento.
 
 Hay que resolverlas **antes** de la Fase 2, porque definen el comportamiento a implementar:
 
-1. **Tiempo de inactividad.** El manual (§4.4.4) declara **5 minutos**. El entorno real usa
-   `TIMELOGOUT=30` (cliente) y `TIMELOGOUTADMIN=25` (admin). El rewrite debe implementar el
-   valor correcto; hay que confirmar con Cumplimiento cuál es.
+1. ~~**Tiempo de inactividad.**~~ **RESUELTO (2026-09-10).** El valor normativo es el del
+   manual: **5 minutos**. Los `TIMELOGOUT=30` / `TIMELOGOUTADMIN=25` que se ven en
+   `topkapital-env.conf` son **exclusivos del entorno local**, para que la sesión no se
+   cierre a cada rato mientras se desarrolla.
+
+   Consecuencia para la migración: el timeout es **configuración por entorno**, nunca un
+   número escrito en el código. `config/topkapital.php` lo lee de `SESSION_IDLE_MINUTES`
+   con **5 como valor por defecto**, de modo que cualquier entorno que no lo declare
+   cumple la norma; sólo el `.env` local lo sube a 30. Lo mismo aplica al aviso previo.
 2. **Hash de contraseñas.** El manual (§4.1) dice **SHA-256**. El código usa `password_hash`
    de PHP (**bcrypt**), que es lo correcto desde el punto de vista de seguridad. Parece un
    error de redacción del manual, no del código: se conserva bcrypt y se sugiere corregir
@@ -478,6 +500,25 @@ pantalla contra pantalla durante toda la migración.
 detecta automáticamente al recibir el pago por STP. Queda resuelta la discrepancia
 3 del §8 y `CuentaBancariaController` sale del alcance de la migración.
 
-**Siguiente paso natural:** Fase 1 — completar el design system (`DataTable`,
-`Stepper`, `Modal`, `DatePicker`, `MoneyInput`) y, en paralelo, resolver con
-Cumplimiento las 3 discrepancias del §8 antes de entrar a la Fase 2.
+### 2026-09-10 — Sesión 1 (continuación): Fase 1
+
+- **Resueltas las 3 discrepancias del §8.** Inactividad: 5 min es el valor normativo,
+  los 30 son sólo locales. Cuenta bancaria: se detecta sola con el pago de STP.
+  Hash: bcrypt es lo correcto, el manual está mal redactado.
+- **Compatibilidad de contraseñas probada**, en ambos sentidos. `BCRYPT_ROUNDS=13`
+  para igualar el coste de Yii2.
+- `config/topkapital.php`: todos los parámetros regulados (inactividad, OTP, política
+  de contraseñas, bloqueo, umbral de KYC) en un solo lugar, con los valores **normativos
+  como default** para que un entorno que no declare nada quede conforme.
+- Componentes nuevos: `Modal`, `Alert`, `Checkbox`, `Textarea`, `MoneyInput`, `Stepper`
+  y `DataTable`.
+- Demo de la `DataTable` en `/ui/tabla` contra `actividad_economica`. Verificado:
+  búsqueda con debounce (1,214 → 2 resultados), orden en ambos sentidos con `aria-sort`
+  correcto, y **el foco se conserva** en el buscador durante la recarga parcial.
+- Corregido el bug de la clave de transición (ver la Fase 1 arriba).
+
+**Siguiente paso natural:** completar los componentes que faltan de la Fase 1
+(`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,
+`AuthLayout`, `AdminLayout`) y entrar a la **Fase 2**, que ya no tiene bloqueos:
+modelo `Usuario` mapeado a la tabla existente, login, política de contraseñas, OTP,
+bloqueo por intentos, sesión única e imagen de seguridad.
