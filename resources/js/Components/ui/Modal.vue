@@ -22,8 +22,17 @@ withDefaults(
         description?: string;
         /** sm para confirmaciones, lg para formularios largos. */
         size?: 'sm' | 'md' | 'lg';
+        /**
+         * false quita la X y bloquea Escape y el clic fuera.
+         *
+         * Para modales donde cerrar sin elegir no significa nada: el aviso de
+         * cierre de sesión, por ejemplo, donde descartarlo no evita que la
+         * sesión caduque. Úsalo con criterio: atrapar al usuario en un modal
+         * es hostil salvo que la decisión sea realmente ineludible.
+         */
+        dismissible?: boolean;
     }>(),
-    { size: 'md' },
+    { size: 'md', dismissible: true },
 );
 
 const open = defineModel<boolean>('open', { default: false });
@@ -50,6 +59,9 @@ const sizes = {
                     'data-[state=open]:animate-[modal-in_180ms_cubic-bezier(0.16,1,0.3,1)]',
                     sizes[size],
                 ]"
+                @escape-key-down="!dismissible && $event.preventDefault()"
+                @pointer-down-outside="!dismissible && $event.preventDefault()"
+                @interact-outside="!dismissible && $event.preventDefault()"
             >
                 <header v-if="title || $slots.header" class="border-b border-line px-5 py-4 pr-12">
                     <slot name="header">
@@ -69,6 +81,7 @@ const sizes = {
                 </footer>
 
                 <DialogClose
+                    v-if="dismissible"
                     class="absolute right-4 top-4 rounded-md p-1.5 text-fg-subtle transition-colors hover:bg-surface-sunken hover:text-fg"
                     aria-label="Cerrar"
                 >

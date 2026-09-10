@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\SesionController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Route;
@@ -41,6 +42,19 @@ Route::middleware('guest')->group(function () {
 Route::post('/logout', [LoginController::class, 'salir'])
     ->middleware('auth')
     ->name('logout');
+
+/*
+ * Estado de la sesión, para el aviso con cuenta regresiva.
+ *
+ * `sesion.estado` está excluida de renovar la actividad (ver ControlDeSesion):
+ * si el sondeo renovara el reloj, una pestaña abierta mantendría la sesión
+ * viva para siempre. `sesion.renovar` sí la renueva, porque ahí el usuario
+ * dijo explícitamente que sigue presente.
+ */
+Route::middleware('auth')->group(function () {
+    Route::get('/sesion/estado', [SesionController::class, 'estado'])->name('sesion.estado');
+    Route::post('/sesion/renovar', [SesionController::class, 'renovar'])->name('sesion.renovar');
+});
 
 Route::get('/', function () {
     // Consulta directa a proposito: los modelos Eloquent mapeados al esquema

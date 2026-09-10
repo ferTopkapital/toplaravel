@@ -24,8 +24,30 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
 
+            /*
+             * Sólo lo que la interfaz necesita, no el modelo completo: la
+             * tabla `usuario` tiene 114 columnas con datos personales y esto
+             * viaja en CADA respuesta de Inertia.
+             *
+             * `ultimoAcceso` es el ingreso ANTERIOR, no el actual: es el dato
+             * que el manual §1.4 obliga a mostrarle al cliente para que pueda
+             * detectar un acceso que no reconozca.
+             */
             'auth' => [
-                'user' => $request->user(),
+                'usuario' => fn () => $request->user() === null ? null : [
+                    'id' => $request->user()->usuarioId,
+                    'nombre' => $request->user()->nombre,
+                    'nombreCompleto' => $request->user()->nombreCompleto(),
+                    'email' => $request->user()->email,
+                    'rol' => $request->user()->rol,
+                    'esInterno' => $request->user()->esInterno(),
+                    'ultimoAcceso' => $request->user()->ultimoLoginAnterior?->toIso8601String(),
+                ],
+            ],
+
+            'sesion' => [
+                'minutosInactividad' => (int) config('topkapital.sesion.minutos_inactividad'),
+                'segundosAviso' => (int) config('topkapital.sesion.segundos_aviso'),
             ],
 
             // Mensajes flash de un solo uso (redirecciones tras guardar).

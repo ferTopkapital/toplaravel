@@ -7,7 +7,7 @@
  * plataforma legítima y no en un sitio que la suplanta.
  */
 import { computed, onUnmounted, ref, watch } from 'vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, usePage } from '@inertiajs/vue3';
 import AuthLayout from '@/Layouts/AuthLayout.vue';
 import Button from '@/Components/ui/Button.vue';
 import Input from '@/Components/ui/Input.vue';
@@ -27,6 +27,16 @@ const props = withDefaults(
     }>(),
     { requiereOtp: false, segundosOtp: 0, intentosRestantes: 10 },
 );
+
+const page = usePage();
+
+/**
+ * Motivo por el que se cerró la sesión anterior, si aplica.
+ *
+ * El manual §4.4.4 obliga a informar al cliente POR QUÉ se le cerró la sesión
+ * —inactividad, o acceso desde otro dispositivo—, no sólo a devolverlo aquí.
+ */
+const motivoCierre = computed(() => (page.props.flash as any)?.error ?? null);
 
 const formIdentificador = useForm({ email: '' });
 const formCredenciales = useForm({ password: '', codigo: '' });
@@ -73,6 +83,10 @@ const relojOtp = computed(() => {
 
 <template>
     <Head title="Iniciar sesión" />
+
+    <Alert v-if="motivoCierre" tone="warn" title="Tu sesión se cerró" class="mb-5">
+        {{ motivoCierre }}
+    </Alert>
 
     <!-- ---------- Paso 1: identificador ---------- -->
     <form v-if="paso === 'identificador'" class="space-y-5" @submit.prevent="identificar">

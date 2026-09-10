@@ -326,11 +326,46 @@ Todo lo de este bloque está normado; ver §8.
 - [x] **Imagen de seguridad** mostrada antes de pedir la contraseña.
 - [x] Al iniciar sesión se conserva `ultimoLoginAnterior` para poder mostrar el ingreso previo.
 - [ ] Falta: **enviar el OTP por correo** (hoy se escribe al log; el mailer llega en la Fase 3).
-- [ ] Falta: mostrar nombre y fecha del último ingreso ya dentro de la app (es de la Fase 3).
-- [ ] Falta: cierre de sesión por inactividad + modal con cuenta regresiva.
-- [ ] Falta: **sesión única** por identificador de cliente.
+- [x] Nombre del cliente y fecha del ingreso anterior, visibles en el encabezado.
+- [x] Cierre de sesión por inactividad **aplicado en el servidor** + modal con cuenta regresiva.
+- [x] **Sesión única** por identificador de cliente.
+- [x] Bitácora de accesos en `sesiones_web` (ver abajo: alimenta OFICO).
 - [ ] Falta: reset de contraseña por código, con historial (`historial_contrasenas`).
 - [ ] Falta: registro (signup) de inversionista y de solicitante.
+
+#### `sesiones_web` no es control de sesión: es bitácora regulatoria
+
+Pese al nombre, esa tabla no controla nada. `OficoSeccion1Service` la lee para dos campos
+del reporte que va a la CNBV: la **fecha del último movimiento** del cliente y el **número
+de accesos por banca por internet** en el periodo.
+
+Granularidad: **una fila por usuario y por día**. Entrar cinco veces el mismo día cuenta
+como un acceso, así que la deduplicación define el número reportado.
+
+Si la app Laravel no la escribe, el reporte **subreporta** en cuanto los clientes empiecen
+a entrar por aquí. Ya se escribe en el login, con dos pruebas que lo cubren.
+
+#### La sesión única se ata a un token, no al id de sesión
+
+El id de sesión cambia sin que el usuario haga nada raro: Laravel lo regenera al iniciar
+sesión, y conviene regenerarlo también al cambiar la contraseña para cortar la fijación de
+sesión. Un control que comparara ids expulsaría al usuario de **su propia** sesión en esos
+momentos, y parecería un acceso desde otro dispositivo.
+
+Por eso se registra un token aleatorio guardado **dentro** de la sesión, que sobrevive a la
+regeneración del id.
+
+El registro vive en la caché de la aplicación porque `usuario` no se puede alterar y no hay
+columna donde quepa (`codigoSesion` es `varchar(8)`). **Con el driver `file` esto sólo vale
+en una máquina:** si la app llega a correr en varias instancias, ese store tiene que ser
+compartido (Redis o base) o el control deja de valer.
+
+#### El sondeo del estado no renueva la sesión
+
+`GET /sesion/estado` está excluido de renovar el reloj de actividad. Si lo renovara, una
+pestaña abierta mantendría la sesión viva indefinidamente y el control del §4.4.4 sería
+decorativo. `POST /sesion/renovar` sí la renueva, porque ahí el usuario dijo explícitamente
+que sigue presente. Hay una prueba para cada caso.
 
 #### El contador de intentos cuenta hacia ATRÁS
 
@@ -561,6 +596,25 @@ datos no tiene privilegios para crear una base aparte. Las que escriben usan
 **Decisión de diseño:** si el usuario no ha elegido imagen de seguridad, la pantalla lo
 dice en vez de mostrar una cualquiera. Enseñar una imagen equivocada destruiría justamente
 la garantía que ese control existe para dar.
+
+### 2026-09-10 — Sesión 1 (continuación): controles de sesión
+
+- `ControlDeSesion` (inactividad + sesión única), `SesionUnica`, `SesionController`,
+  `useSesion` y el modal de aviso con cuenta regresiva.
+- `SesionWeb` y su escritura en el login. **Hallazgo:** el login que se había escrito
+  antes no alimentaba `sesiones_web`, lo que habría subreportado el OFICO.
+- **Bug de producción evitado:** la primera versión de la sesión única comparaba ids de
+  sesión. Como Laravel regenera el id al iniciar sesión (y conviene regenerarlo al cambiar
+  la contraseña), ese diseño habría expulsado al usuario de su propia sesión. Se cambió a
+  un token guardado dentro de la sesión.
+- `Modal` acepta `dismissible: false`, para avisos donde cerrar sin elegir no significa nada.
+- 8 pruebas nuevas. Suite completa: **46 pruebas, 98 aserciones**.
+
+**Nota sobre el entorno de pruebas:** el harness de Laravel no conserva la cookie de sesión
+entre peticiones, así que el id de sesión cambia en cada una aunque los datos persistan.
+Eso hizo fallar la primera versión de estas pruebas y fue lo que destapó el bug anterior.
+Las pruebas de tiempo usan `travel()` en vez de manipular la sesión, porque `$this->session()`
+regenera el id y dispara el control.
 
 **Siguiente paso natural:** completar los componentes que faltan de la Fase 1
 (`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,

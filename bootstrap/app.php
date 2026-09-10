@@ -12,6 +12,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->web(append: [
+            // Cierre por inactividad y sesion unica (manual §4.4.4). Va antes
+            // de Inertia para que una sesion caducada no alcance a compartir
+            // props del usuario que ya no deberia estar dentro.
+            \App\Http\Middleware\ControlDeSesion::class,
             \App\Http\Middleware\HandleInertiaRequests::class,
             // Manda cabeceras Link para que el navegador precargue el JS/CSS
             // que Vite ya sabe que hace falta, sin esperar a parsear el HTML.

@@ -1,10 +1,43 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { Link, usePage } from '@inertiajs/vue3';
+import { computed, onMounted, ref } from 'vue';
+import { Link, router, usePage } from '@inertiajs/vue3';
 import ThemeToggle from '@/Components/ui/ThemeToggle.vue';
+import Modal from '@/Components/ui/Modal.vue';
+import Button from '@/Components/ui/Button.vue';
+import { useSesion } from '@/composables/useSesion';
 
 const page = usePage();
 const sidebarOpen = ref(false);
+
+const usuario = computed(() => (page.props.auth as any)?.usuario ?? null);
+const configSesion = computed(() => (page.props.sesion as any) ?? null);
+
+/* ---- Aviso de cierre por inactividad (manual §4.4.4) ---- */
+
+const sesion = useSesion(
+    configSesion.value?.minutosInactividad ?? 5,
+    configSesion.value?.segundosAviso ?? 60,
+);
+
+onMounted(() => {
+    if (usuario.value) sesion.iniciar();
+});
+
+/** Fecha y hora del ingreso ANTERIOR, que el manual §1.4 obliga a mostrar. */
+const ultimoAcceso = computed(() => {
+    const iso = usuario.value?.ultimoAcceso;
+    if (!iso) return null;
+
+    return new Intl.DateTimeFormat('es-MX', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+        timeZone: 'America/Mexico_City',
+    }).format(new Date(iso));
+});
+
+function salir(): void {
+    router.post('/logout');
+}
 
 /**
  * Clave de la transicion de pagina: SOLO la ruta, sin query string.
@@ -94,10 +127,52 @@ const nav = [
                     </svg>
                 </button>
 
-                <div class="ml-auto">
+                <!--
+                    Identidad del cliente y fecha del ingreso anterior.
+                    No es adorno: el manual §1.4 obliga a mostrar ambos de
+                    forma notoria al iniciar sesion, para que el cliente pueda
+                    detectar un acceso que no reconozca.
+                -->
+                <div v-if="usuario" class="min-w-0 leading-tight">
+                    <p class="truncate text-sm font-semibold text-fg">
+                        {{ usuario.nombreCompleto || usuario.nombre }}
+                    </p>
+                    <p v-if="ultimoAcceso" class="truncate text-[11px] text-fg-subtle">
+                        Último ingreso: {{ ultimoAcceso }}
+                    </p>
+                </div>
+
+                <div class="ml-auto flex items-center gap-2">
                     <ThemeToggle />
+
+                    <Button v-if="usuario" variant="ghost" size="sm" @click="salir">
+                        Salir
+                    </Button>
                 </div>
             </header>
+
+            <!--
+                Aviso previo al cierre por inactividad. El cierre real lo
+                aplica el servidor; esto solo le da al usuario la oportunidad
+                de continuar antes de perder lo que este haciendo.
+            -->
+            <Modal
+                v-if="usuario"
+                :open="sesion.avisando.value"
+                :dismissible="false"
+                size="sm"
+                title="¿Sigues ahí?"
+            >
+                <p class="text-sm text-fg-muted">
+                    Por tu seguridad, tu sesión se cerrará por inactividad en
+                    <span class="font-semibold tabular-nums text-fg">{{ sesion.reloj.value }}</span>.
+                </p>
+
+                <template #footer>
+                    <Button variant="secondary" @click="salir">Cerrar sesión</Button>
+                    <Button @click="sesion.renovar">No cerrar sesión</Button>
+                </template>
+            </Modal>
 
             <!--
                 Transicion de pagina. La clave es la ruta sin query string

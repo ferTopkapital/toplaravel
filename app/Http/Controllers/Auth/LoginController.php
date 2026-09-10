@@ -3,8 +3,11 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
+use App\Http\Middleware\ControlDeSesion;
+use App\Models\SesionWeb;
 use App\Models\Usuario;
 use App\Services\CodigoOtp;
+use App\Support\SesionUnica;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -31,8 +34,10 @@ use Inertia\Response;
  */
 class LoginController extends Controller
 {
-    public function __construct(private CodigoOtp $otp)
-    {
+    public function __construct(
+        private CodigoOtp $otp,
+        private SesionUnica $sesionUnica,
+    ) {
     }
 
     public function mostrar(): Response
@@ -150,11 +155,20 @@ class LoginController extends Controller
         $request->session()->regenerate();
         $request->session()->forget('login.email');
 
+        // Deja fuera cualquier otra sesión abierta con este mismo
+        // identificador de cliente (manual §4.4.4).
+        $this->sesionUnica->registrar($usuario, $request->session());
+        $request->session()->put(ControlDeSesion::LLAVE_ACTIVIDAD, now()->timestamp);
+
         return redirect()->intended('/');
     }
 
     public function salir(Request $request): RedirectResponse
     {
+        if ($usuario = Auth::user()) {
+            $this->sesionUnica->olvidar($usuario);
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();
@@ -175,6 +189,12 @@ class LoginController extends Controller
         $usuario->ultimoLogin = now();
         $usuario->intentosLogin = config('topkapital.bloqueo.intentos_maximos');
         $usuario->save();
+
+        // Bitácora regulatoria: `OficoSeccion1Service` la lee para el número
+        // de accesos por banca por internet y la fecha del último movimiento.
+        // Si Laravel deja de escribirla, el reporte a la CNBV subreporta en
+        // cuanto los clientes empiecen a entrar por esta app.
+        SesionWeb::registrar((int) $usuario->getKey());
     }
 
     /**
