@@ -412,9 +412,43 @@ colar.
       mis inversiones, noticias y proyectos en fondeo.
 - [x] Listado de proyectos con tarjetas y filtro por etapa.
 - [x] Detalle del proyecto con galería y condiciones de la campaña.
-- [ ] Falta: calendario de pagos y documentos.
-- [ ] Falta: perfil (información general, beneficiarios, archivos, y cuentas bancarias
-      **en sólo lectura** — se detectan solas al recibir el pago por STP; ver §8, punto 3).
+- [x] Calendario de pagos: programados, pagados y acumulados de interés, ISR y neto.
+- [x] Documentos: facturas, constancias de retención y comprobantes de inversión.
+- [x] Perfil: información general, beneficiarios, cuentas bancarias en sólo lectura
+      y **elección de la imagen de seguridad** (§1.4).
+- [ ] Falta: edición de la información general (llega con el onboarding, Fase 4).
+- [ ] Falta: descarga de estado de cuenta por periodo, que exige OTP (§4.4.3).
+
+#### El calendario del cliente sale de `retornos`, no de `calendario_pagos`
+
+`calendario_pagos` es el calendario del **proyecto**: una fila por fecha de pago de la
+campaña, sin dueño. Lo que cada inversionista cobra —su capital, sus intereses, su
+retención de ISR y su neto— vive en `retornos`, ligado a su `inversionId`.
+
+Además, `retornos` no tiene `usuarioId`: se filtra por el dueño de la inversión.
+
+#### Los importes se leen, no se calculan
+
+Varias columnas de `retornos` son `decimal(x,6)`, no `(x,2)`. Se conservan como están y se
+redondean **sólo al mostrar**; los acumulados se suman en la base y se redondean al final,
+porque sumar valores ya redondeados arrastraría diferencias de centavos contra lo que el
+cliente ve en sus CFDI.
+
+Recalcular por nuestra cuenta lo que ya salió en un CFDI timbrado sería introducir una
+discrepancia fiscal. El motor que produce esos números es la Fase 7.
+
+#### Los documentos se sirven con verificación de propiedad
+
+Un CFDI o una constancia de retención llevan el RFC del cliente y sus importes. Una URL
+firmada de S3 **caduca, pero no comprueba de quién es el documento**: quien tenga el enlace
+lo abre, y la ruta del objeto queda a la vista.
+
+Por eso las rutas de S3 nunca salen al navegador. El cliente pide `/documentos/{tipo}/{id}`
+y `DocumentoController` verifica que sea suyo antes de firmar nada — el mismo criterio de
+la app Yii2, que los sirve por `site/file` con la ruta cifrada.
+
+Se responde **404 y no 403** ante un documento ajeno: un 403 confirmaría que ese id existe.
+Hay pruebas dedicadas para ambas cosas.
 
 #### Las condiciones se leen de la CAMPAÑA, no del proyecto
 
@@ -570,7 +604,7 @@ Hay que resolverlas **antes** de la Fase 2, porque definen el comportamiento a i
 | Pieza | Valor |
 |---|---|
 | Apache | `C:\dev\Apache24` (servicio `Apache2.4`), `mod_php` |
-| PHP | `C:\dev\php82` (8.2.33) — también existe `C:\dev\php83` |
+| PHP | `C:\dev\php82` (8.2.33), que es el que carga Apache. **`php82\php.exe` quedó bloqueado por una política de Application Control de Windows el 2026-09-11**; el binario está intacto y `mod_php` no se ve afectado, pero para CLI (artisan, pruebas) hay que usar `C:\dev\php83\php.exe` (8.3.33) hasta que se resuelva |
 | MariaDB | `C:\dev\mariadb`, `127.0.0.1:3306` |
 | Node | `C:\Program Files\nodejs` (24.x LTS) |
 | Composer | `C:\dev\composer\composer.bat` |
@@ -741,6 +775,22 @@ certificados**, lo que habría tumbado todas las integraciones de la Fase 7.
 `$165,000.00` de capital, sus dos inversiones y el nombre con la fecha del ingreso
 anterior. Los datos de prueba se borraron después; `usuario` volvió a 174 filas y
 `solicitud_inversion` a 17.
+
+### 2026-09-11 — Sesión 1 (continuación): calendario, documentos y perfil
+
+- `Retorno`, `Beneficiario` y `CuentaBancaria`.
+- Calendario de pagos, pantalla de documentos y perfil, con la elección de la imagen
+  de seguridad que faltaba del §1.4.
+- `DocumentoController` entrega archivos **sólo tras verificar propiedad**. 9 pruebas
+  nuevas, centradas en el control de acceso. Suite: **80 pruebas, 253 aserciones**.
+- La CLABE está en `$hidden` del modelo; la vista sólo recibe los últimos cuatro dígitos.
+
+**Incidencia de entorno:** a mitad de la sesión, Windows bloqueó `C:\dev\php82\php.exe`
+con una política de Application Control. El binario está intacto y `mod_php` (la DLL que
+carga Apache) no se ve afectada —el servidor siguió respondiendo—, pero la CLI dejó de
+funcionar. Se pasó a `C:\dev\php83\php.exe`, que también quedó con su bundle de
+certificados configurado. Conviene revisar esa política: si algún día alcanza a la DLL,
+tumba la app.
 
 **Siguiente paso natural:** completar los componentes que faltan de la Fase 1
 (`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,

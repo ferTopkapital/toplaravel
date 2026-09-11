@@ -62,6 +62,9 @@ const nav = computed(() => {
     const items = [
         { label: 'Panel', href: '/', icon: 'M3 10.5 10 4l7 6.5V16a1 1 0 0 1-1 1h-3v-4H8v4H5a1 1 0 0 1-1-1v-5.5Z' },
         { label: 'Proyectos', href: '/proyectos', icon: 'M3 6h14M3 10h14M3 14h9' },
+        { label: 'Calendario', href: '/calendario', icon: 'M4 6h12v10H4V6Zm0 3h12M7 4v3m6-3v3' },
+        { label: 'Documentos', href: '/documentos', icon: 'M6 3h5l3 3v11H6V3Zm5 0v3h3' },
+        { label: 'Mi perfil', href: '/perfil', icon: 'M10 10a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-6 6a6 6 0 0 1 12 0' },
     ];
 
     // El catálogo del design system no es parte del producto; se muestra

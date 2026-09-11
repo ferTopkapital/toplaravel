@@ -3,7 +3,10 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\Auth\RecuperarPasswordController;
 use App\Http\Controllers\Auth\RegistroController;
+use App\Http\Controllers\CalendarioController;
+use App\Http\Controllers\DocumentoController;
 use App\Http\Controllers\PanelController;
+use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\ProyectoController;
 use App\Http\Controllers\SesionController;
 use Illuminate\Http\Request;
@@ -102,6 +105,27 @@ Route::middleware('auth')->group(function () {
     Route::get('/proyectos/{proyectoId}', [ProyectoController::class, 'detalle'])
         ->whereNumber('proyectoId')
         ->name('proyectos.detalle');
+
+    Route::get('/calendario', [CalendarioController::class, 'index'])->name('calendario');
+
+    Route::get('/documentos', [DocumentoController::class, 'index'])->name('documentos');
+
+    /*
+     * Entrega de documentos fiscales y personales.
+     *
+     * Las rutas de S3 NUNCA salen al navegador: el controlador comprueba que
+     * el documento sea del cliente que lo pide y sólo entonces firma una URL
+     * de vida corta. Una URL firmada caduca, pero no verifica de quién es el
+     * documento.
+     */
+    Route::get('/documentos/{tipo}/{id}', [DocumentoController::class, 'ver'])
+        ->whereIn('tipo', ['cfdi', 'constancia-isr', 'comprobante', 'constancia'])
+        ->whereNumber('id')
+        ->name('documentos.ver');
+
+    Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil');
+    Route::post('/perfil/imagen', [PerfilController::class, 'guardarImagen'])
+        ->name('perfil.imagen');
 });
 
 // Catalogo del design system. Se mantiene durante toda la migracion.
