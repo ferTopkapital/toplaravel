@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\RecuperarPasswordController;
 use App\Http\Controllers\Auth\RegistroController;
 use App\Http\Controllers\CalendarioController;
 use App\Http\Controllers\DocumentoController;
+use App\Http\Controllers\OnboardingController;
 use App\Http\Controllers\PanelController;
 use App\Http\Controllers\PerfilController;
 use App\Http\Controllers\ProyectoController;
@@ -126,6 +127,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/perfil', [PerfilController::class, 'index'])->name('perfil');
     Route::post('/perfil/imagen', [PerfilController::class, 'guardarImagen'])
         ->name('perfil.imagen');
+
+    /*
+     * Onboarding del inversionista (Fase 4, manual §3.1.1).
+     *
+     * Se conserva el path `/usuario/wizard` de la app Yii2 como alias, porque
+     * ya salió en correos a clientes.
+     */
+    Route::get('/onboarding', [OnboardingController::class, 'wizard'])->name('onboarding');
+    Route::get('/usuario/wizard', fn () => redirect()->route('onboarding'));
+
+    Route::post('/onboarding/informacion', [OnboardingController::class, 'guardarInformacion']);
+    Route::post('/onboarding/constancia', [OnboardingController::class, 'firmarConstancia']);
+    Route::post('/onboarding/contrato', [OnboardingController::class, 'firmarContrato']);
+    Route::post('/onboarding/enviar', [OnboardingController::class, 'enviarAValidacion']);
 });
 
 // Catalogo del design system. Se mantiene durante toda la migracion.

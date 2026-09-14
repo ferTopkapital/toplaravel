@@ -508,13 +508,42 @@ a la app Yii2.
 
 ### Fase 4 — Onboarding (wizards)
 
-- Wizard del inversionista (5 pasos), incluyendo persona moral.
-- Bifurcación **KYC Simplificado (Nivel 1) / KYC Completo (Nivel 2)** con el umbral de
-  $5,000 MXN por mes calendario.
-- Constancia de conocimiento de riesgos (checkbox) y contrato de comisión mercantil con
-  **firma autógrafa digitalizada** (canvas, mouse o dedo).
-- Wizard del solicitante (5 pasos).
-- Integración Incode (biometría).
+- [x] Wizard del inversionista, incluyendo persona moral (RFC de 12 vs 13 caracteres,
+      razón social en vez de apellidos).
+- [x] Bifurcación **KYC Nivel 1 / Nivel 2** (`App\Services\NivelKyc`), con 10 pruebas
+      dedicadas al umbral.
+- [x] Constancia de conocimiento de riesgos: seis casillas por separado.
+- [x] Contrato de comisión mercantil con **firma autógrafa digitalizada** (canvas con
+      Pointer Events: mouse, dedo y lápiz con el mismo código).
+- [x] Envío del expediente a revisión, con la misma condición de completitud que
+      `UsuarioController::actionValidar` de la app Yii2.
+- [ ] Falta: carga de archivos del paso 3 a S3 (identificación y foto sosteniéndola).
+- [ ] Falta: integración Incode (biometría).
+- [ ] Falta: aviso por correo al Oficial de Cumplimiento y a Operaciones.
+- [ ] Falta: wizard del solicitante (5 pasos).
+
+#### Dónde se aplica cada regla de KYC
+
+No están en el mismo sitio, y confundirlas rompe el control:
+
+| Regla | Dónde se evalúa |
+|---|---|
+| Persona moral, o inversionista Experto o Relacionado → documentación obligatoria | Al **cerrar el onboarding** |
+| Monto acumulado supera $5,000 → escalar a Nivel 2 | Al **invertir**, no al registrarse |
+
+Por eso la app Yii2 excluye a las personas morales del umbral con un `tipoPersona != 2`
+que a primera vista parece un error: no lo es. La persona moral **ya tuvo que entregar
+documentación** para terminar su onboarding, así que volver a exigírsela al invertir sería
+redundante. Se conserva ese diseño.
+
+#### La constancia son seis casillas, no una
+
+Cada casilla corresponde a un riesgo que la institución debe acreditar que reveló
+(pérdida, liquidez, información, rendimiento, ausencia de aprobación de la CNBV, ausencia
+de asesoría). Un único "acepto todo" no acreditaría lo mismo.
+
+Tampoco se re-firma: la primera fecha, junto con la IP, es la evidencia. Lo mismo aplica
+al contrato, que **se firma una sola vez** y regula todas las inversiones posteriores.
 
 ### Fase 5 — Flujo de inversión
 
@@ -568,6 +597,30 @@ la CNBV. Cualquier cambio de comportamiento en el rewrite es un incumplimiento.
 | 4.3.2 | Desactivación por 1 año de inactividad, con aviso 30 días antes | Fase 7 (tarea programada) |
 | 4.4 | Segundo factor (OTP 8 caracteres, 2 minutos) en: compromiso de inversión, alta/cambio de cuenta destino, cambio de contraseña, consulta de estado de cuenta | Fases 2 y 5 |
 | 4.4.4 | Cierre de sesión por inactividad **y sesión única por identificador** | Fase 2 |
+
+### Discrepancia ABIERTA: el umbral de KYC no se cuenta por mes calendario
+
+El manual dice, tres veces, "monto agregado de inversión **por mes calendario**" (§1.1.2,
+§3.1.1, §3.2.1). La app Yii2 hace otra cosa: suma **todas** las inversiones confirmadas del
+cliente, sin filtro de fecha y sin excluir las devueltas ni las canceladas.
+
+```php
+// frontend/controllers/ProyectoController.php
+$totalAcumulado = SolicitudInversion::find()
+    ->where(['usuarioId' => ..., 'confirmada' => 1])   // sin rango de fechas
+    ->sum('monto');
+```
+
+Efecto práctico: el acumulado nunca se reinicia, así que el umbral se cruza **antes** de lo
+que la norma exigiría y se pide más documentación, no menos.
+
+**Se conservó el comportamiento de Yii2** porque es el más estricto. Pasarlo a ventana
+mensual —lo que dice el manual— **relajaría un control de PLD**, y esa es una decisión del
+Oficial de Cumplimiento, no una corrección técnica. Está fijado con pruebas
+(`OnboardingTest`), así que cambiarlo obliga a cambiarlas a conciencia.
+
+**Pendiente de resolver con Cumplimiento:** o se alinea el código al manual, o se corrige el
+manual para reflejar el acumulado de por vida.
 
 ### Discrepancias detectadas entre el manual y el código
 
@@ -791,6 +844,26 @@ carga Apache) no se ve afectada —el servidor siguió respondiendo—, pero la 
 funcionar. Se pasó a `C:\dev\php83\php.exe`, que también quedó con su bundle de
 certificados configurado. Conviene revisar esa política: si algún día alcanza a la DLL,
 tumba la app.
+
+### 2026-09-14 — Sesión 1 (continuación): Fase 4, onboarding
+
+- `NivelKyc` concentra la bifurcación de KYC; `DocumentoUsuario` guarda el expediente.
+- Wizard del inversionista con pasos adaptativos: el paso de archivos **no se muestra**
+  en Nivel 1. El manual dice que ahí "no se presenta o permanece inactivo"; se omite del
+  todo para no pedirle al cliente documentación que la norma no le exige.
+- `FirmaCanvas`: firma autógrafa con Pointer Events, canvas a `devicePixelRatio` y
+  captura de puntero para que el trazo no se corte si el dedo se sale del recuadro.
+  El trazo es negro fijo, no un token de tema: la firma acaba en un PDF de fondo blanco
+  y en modo oscuro una firma clara sería invisible en el documento.
+- 23 pruebas nuevas, 10 de ellas sobre el umbral. Suite: **103 pruebas, 298 aserciones**.
+
+**Hallazgo:** el umbral de KYC no se cuenta por mes calendario como dice el manual, sino
+como acumulado de por vida. Ver la discrepancia abierta en la §8.
+
+**Verificado a ojo:** alta de sesión, wizard en Nivel 1 sin paso de archivos, firma de la
+constancia, trazo de la firma en el canvas y guardado del contrato. En la base quedaron
+`constanciaFirmadoEn`, `contratoFirmadoEn`, `ipFirma` y 14 KB de firma. Los datos de
+prueba se borraron: `usuario` sigue en 174 y `documento_usuario` en 5.
 
 **Siguiente paso natural:** completar los componentes que faltan de la Fase 1
 (`Combobox`, `Radio`, `Switch`, `DatePicker`, `Tabs`, `Tooltip`, `Dropdown`,
